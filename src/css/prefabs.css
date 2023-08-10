@@ -4,6 +4,10 @@
 	font-family: Gotham, "Helvetica Neue", Helvetica, Arial, "sans-serif";
 }
 
+.body {
+    background-color: #005680;
+}
+
 .page {
 	background-color: #278FC2;
 }
@@ -23,7 +27,7 @@
 .navbar a {
     text-decoration: none;
     font-size: 2rem;
-    color: white;
+    color: #ECECEC;
     margin-left: 30px;
     margin-right: 30px;
     transition-duration: 200ms;
@@ -52,11 +56,15 @@ content {
 content h1 {
     color: #ECECEC;
     font-size: 3em;
+    margin-top: 60px;
+    margin-bottom: 20px;
 }
 
 content h2 {
     color: #ECECEC;
     font-size: 2.5em;
+    margin-top: 60px;
+    margin-bottom: 20px;
 }
 
 content p {
@@ -64,4 +72,19 @@ content p {
     font-size: 1.5em;
     line-height: 1.5em;
     text-align: justify;
+}
+
+.footer {
+    margin-top: 50px;
+    margin-bottom: 0px;
+    height: 80px;
+    width: 100%;
+    background-image: linear-gradient(to top, #005680, #278FC2);
+    text-align: center;
+}
+
+.footer p {
+    padding-top: 35px;
+    color: #ECECEC;
+    font-size: 1.2em;
 }
