@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="../img/atumemot_icon.png" type = "image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATUMEMOT - My First Dev Job Went Amazing</title>
+    <link rel="stylesheet" href="../src/css/prefabs.css">
+</head>
+<body class="body">
+    <div class="page">
+        <header class="header">
+            <img src="../img/atumemot_logo.png" class="logo">
+            <nav class="navbar">
+                <a href="../index.html">HOME</a>
+                <div class="separator"></div>
+                <a href="../projects.html">PROJECTS</a>
+                <div class="separator"></div>
+                <a href="../blogs.html">BLOGS</a>
+            </nav>
+        </header>
+        <content>
+            <h1>My First Dev Job Went Amazing</h1>
+            <p>
+                The tutoring service I normally work for during the school year has to schedule all of the tutors' sessions at the start of each quarter. This is a massive task that requires the entire staff to crunch for 2 weeks straight. Seeing an opportunity, I approached the department director, and offered to create a tool to help automate the scheduling process over the Summer. I would be the only developer working on this project, and coordinating with staff to revamp their scheduling process. I think this was probably the best project I could ask for as my first developer job. It was relatively small (by the end, it was about 3000ish lines), it only needed to handle at most 200 schedules, it was automating a process I was already familiar with, the “user-base” was 5 staff members, and I was working with super supportive staff that I already knew. 
+                <br>
+                <br>
+                I made a simple, single-page app using pure js. It takes in tutors' submitted session availability, validates them, and assigns them rooms. It then outputs completed schedules. It also includes tools to help with error handling (mainly time conflicts), filtering tutors based on course, department, and position, editing times, organizing registrar requests (for room assignments that need the college's permission), and tracking each tutor's progress through the scheduling procedure. In this post, I'll explain how I created the tool, the successes and challenges I faced, parts I could have designed better, and the lessons I learned from this.
+            </p>
+            <h2>Dealing With An Undefined Scope</h2>
+            <p>
+                Early in the project, I realized that a lot of the details I would need to define the scheduler’s procedure weren’t really set in stone. This was because the tutoring service was relatively new, having branched off from a different support service offered by my college only several years ago. Combined with the breakneck pace scheduling had to be done at, a lot of the rules scheduling had to abide by were mostly left to judgment calls made by the individual staff member.
+                <br>
+                <br>
+I expected there to be a lot of feature creep, and changes along the way, since the staff were defining the rules as I was programming them in. To deal with this, I followed a few general structuring techniques to make it so I could modify code as fast as possible.
+<br>
+                <br>
+<b>Make it look like a strategy:</b> I think about 60% of my code in this project ended up being better written as a strategy pattern. I try to group similar features together into a single interface function. I’ll keep sections of code that would describe each strategy separate, usually by putting them in their own if blocks. Then I wait for either the sections to grow too big, or for too many sections to be added. If that happens, then I can just move each section into its own strategy function, and put function calls in the main interface function. I usually prefer to use a map of function pointers only if the keys would be enum values, or something like a type. Otherwise, I think just using an if-else chain or a switch statement is more readable since you can immediately see what strategies are called without having to look somewhere else. The other situation is I end up adding too many arguments to the interface function. In this case, I just split the function.
+<br>
+                <br>
+<b>Enums at 90%:</b> I’m generally pretty iffy on enums. I notice if I use them early in a project, when I inevitably have to rewrite something, I end up having to choose between contorting the part I’m rewriting to fit the enums I already have, or rewrite other parts of the project that were perfectly fine to fit with new enum values. For projects that are constantly making small adjustments, they can be a god-send though. A majority of the changes I had to make in the scheduler were really easy to make because of my generous enum usage. The rule of thumb I followed was once I felt I was 90% done with a section of the project, I started moving things into enums. This ended up working really well, since what I thought was 90%, was actually more like 50%. So the last half was much easier to manage since my autocomplete could guess what I was going to do with the context of the enums I added.
+<br>
+                <br>
+<b>Use long names:</b> Sometimes, I end up finding places where I could really use a variable that exists in a different scope from the one I’m working in. This usually looks like an if statement or a loop a few sections after another if statement or loop. So, I would just move the variable declaration outside its original scope so that it can be used again later on. I don’t know if I’m just really bad at abbreviating, but when I go back to that code, and look at the second usage of that variable, I always go “wait, what was this thing for”. This happens with functions and file names, too. So, I always prefer to use long, descriptive names. Autocomplete makes it so I only ever have to type 5ish characters anyways, and if I feel that I should abbreviate it (probably because it made a line of code comically long), I can just rename the variable.
+<br>
+                <br>
+<b>Avoid one-liners:</b> I really like in-line stuff, so this is rough for me. Unless it’s something trivial like choosing between 1 and -1, it’s better to fully write a full if block or whatever would be one-lined. It just saves a little bit of effort when you want to print, or add new logic.
+<br>
+                <br>
+These worked wonders for me. How quickly I was able to see that this project was going to have scope creep, and that I knew how to deal with it successfully was the first tangible display of my experience, not just knowledge, as a programmer I’ve noticed. It was incredibly rewarding.
+            </p>
+            <h2>Designing The Interface</h2>
+            <p>
+                I was surprised by how hands-off my coordinators were with the project, mostly providing feedback and info as I asked for it. This included the UX/UI design, and the specific workflow the tool enforced. This definitely felt like the part I was most blindly navigating, mostly because I didn’t know how to ask the right questions to figure out the best interface for the job. Since this was an internal tool, I knew it didn’t have to be anything fancy. I chose to keep the number of things the user could press to a minimum, and tried to make any tool I added as expressive as possible. Such as the search bar, which can find tutors by name, email, id, course, department, or even section number. Or, setting a tutor’s preferred building to be scheduled in will automatically update their status to “in progress”, which will automatically remove any room assignments they’ve already been given. I opted to give interactions more depth, than create more specific interaction options.
+                <br>
+                <br>
+Similarly, when dealing with the spreadsheets that hold all of the data (I thought an actual database was overkill for a tool that’s only going to be used once a quarter), I wanted to make the formatting easy for a person to edit and read, even though it would usually only be meant for the scheduler to handle. That meant more messy code to make sure human error could be handled, even when reading data that should be generated by the scheduler itself. Since the project was small, I didn't mind this trade-off.
+<br>
+                <br>
+Allowing this kind of flexibility also made it so that some functionality requests could be met by using existing features creatively. For example, I was asked to add a way to reserve blocks of times separate from any tutor schedules. I said this could actually already be done by adding a time block to a room’s schedule. The scheduler would accept names that don’t exist on its list, so they just had to add something like: “Office Hours , (Staff) , 9:00 - 11:00am”, and the scheduler would accept it as a valid time. The staff members that have been using the scheduler have said that it’s surprisingly intuitive, and really easy to work with, so I think this strategy was a success.
+            </p>
+            <h2>Too Confident With Classes</h2>
+            <p>
+                One of the biggest problems I have with how I structured the program was my Schedule class. I organize data into Tutor and Room classes. Each Tutor and Room has a Schedule, which contains their time blocks described by a Time class. The problem is that the Schedule needs different functionality depending on whether it belongs to a Tutor or a Room, and this consequently trickles down to the Time class, although it’s less of a problem there.
+<br>
+<br>
+In the addTime() method, there are multiple checks of the Schedule’s container object, and arguments that are used differently based on the caller. This thing is a mess, and I should have split the class into separate TutorSchedule and RoomSchedule classes the instant I started checking the container’s type. I was too confident in my original imagining of how the class structure should be laid out to think it was worth reworking.
+            </p>
+            <h2>Testing Is Hard</h2>
+            <p>
+                Previously, any programming project I had was either a school assignment with well defined requirements, and sample data provided for testing. I could always be confident in the stability of what I had made. Otherwise it was a game, which usually gives a lot of leeway for imperfections. With the scheduler, I found it really hard to properly test it. This is mostly because of how interconnected I made features. It ultimately came down to throwing a ton of random data at it. This spotted a good number of errors, but I still didn’t feel absolutely confident in its stability. To put myself at ease, I made sure that there were always default options in the case of failure, and that there was always a safe exit condition. Although, I don’t know if I’d call that fixing as much as compensating.
+                <br>
+                <br>
+I need to figure out a better system to create unit tests, and learn some automation tools for myself. Making good test data felt like half the battle, and the other half was figuring out how to define a single unit when I had already designed the program without considering that. With this project, I created it top-down (input handling, then data storage, then data manipulation). I think it would be better to make it bottom-up, which I realize is what made school assignments so easy to test. They were divided into sections that built on one another. That way, you could start at the most basic piece, and have each tested, confirmed, then used in sequence. Fortunately, this was a small program, so I was able to wrangle with the complexity on my own. If this had been at a larger scale, I definitely would have shot myself in the foot, though.
+<br>
+<br>
+My ideal testing tool would be something where I could define an “injection point”, and a “breakpoint”. The tool would see what variables should exist at a given line of code. I could fill those in with whatever I want, and then the program will start at the injection point and run until it hits a breakpoint, where it will display the current state. It could then do this in a loop with whatever testing data I feed it in something like a JSON file. This sounds like something a debugger should be able to do. I’ve just started learning how to use debuggers, so hopefully I find something similar.
+
+            </p>
+            <h2>Talking Isn’t Just One Skill</h2>
+            <p>
+                I’ve been tutoring CS classes for almost 2 years now, so I feel pretty confident in my ability to talk about programming. What surprised me is how different it is to talk about programming to non-programmers, particularly about what I as a programmer need. It was a skill I’ve never had to exercise until then. I really struggled to properly communicate the specifics of what I needed to do during the first few weeks.
+                <br>
+                <br>
+In general, the biggest challenge is communicating that you can’t make assumptions with computers. They need very specific instructions, otherwise nothing will happen. There were a lot of times where I was missing information that I needed to specify how the scheduler would be making decisions. This was mainly because I failed to be specific in an earlier meeting when I had asked for that resource.
+<br>
+<br>
+I’ve definitely gotten better at asking more direct questions, and at getting specifics. Although, it’s still something I have to put some serious effort into to do well. After this experience, I’m going to treat talking to programmers, and talking to clients as two completely different skills. I’ve always considered being able to talk to other programmers as one of the most important skills to have, and I think I’m going to consider talking to clients just as important.
+
+            </p>
+            <h2>The Start Of The Quarter</h2>
+            <p>
+                A week before the quarter started, the session availability form was sent out. I was constantly checking slack in case any bugs showed up. A few did, but fortunately they were basic things like having a > instead of >=. These were all spotted early on the first set of responses, and fixed a few minutes after they were reported (although those types of errors should have been spotted by unit tests, if I made them better). Otherwise, the scheduler worked perfectly. The interface I made was intuitive enough that other staff members are making the training materials instead of myself. All the assistants were super grateful, and we all got our schedules in the first few days of the quarter.
+                <br>
+                <br>
+Even looking at the code just a week after I finished it, I already want to redo half of it because I know how I could have done it better. Regardless, I’m really happy with how this turned out. It’s been super rewarding to watch the staff’s reactions to the scheduler, and seeing it make such a big difference.
+            </p>
+        </content>
+        <footer class="footer">
+            <p>Anthony Umemoto 2023</p>
+        </footer>
+    </div>
+</body>
+</html>
