@@ -198,3 +198,27 @@ content p {
     color: #ECECEC;
     font-size: 1.2em;
 }
+
+.links {
+    display: flex;
+    width: 100%;
+    padding-top: 10px;
+    padding-bottom: 30px;
+    justify-content: center;
+    align-items: center;
+}
+
+.footer-separator {
+    width: 10px;
+	height: 10px;
+	background-color: #ECECEC;
+	border-radius: 50%;
+	display: inline-block;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.footer img {
+    width: 40px;
+    height: 40px;
+}
