@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="../img/atumemot_icon.png" type = "image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATUMEMOT - How To Use Photon Fusion 2</title>
+    <link rel="stylesheet" href="../src/css/prefabs.css">
+</head>
+<body class="body">
+    <div class="page">
+        <header class="header">
+            <img src="../img/atumemot_logo.png" class="logo">
+            <nav class="navbar">
+                <a href="../index.html">HOME</a>
+                <div class="separator"></div>
+                <a href="../projects.html">PROJECTS</a>
+                <div class="separator"></div>
+                <a href="../blogs.html">BLOGS</a>
+            </nav>
+        </header>
+        <content>
+            <h1>How To use Photon Fusion 2</h1>
+            <p>My team has just finished the vertical slice for our physics-based dodgeball party game, Ballistic.</p>
+        <br>
+
+        <br>
+        <p>
+            I am the network programmer on the team, responsible for making sure the mayhem was consistent for all players. To accomplish this, I dove into <a href="https://doc.photonengine.com/fusion/current/fusion-intro">Photon Fusion 2</a>, and I have been pleasantly surprised by how easy to use, and remarkably powerful it is. Having become familiar with its essential functionality, I felt it would be useful to create a tutorial for others looking into Fusion.
+            <br>
+            <br>
+            Since I know Fusion 2 is currently new, and likely to get some changes, it’s worth making the disclaimer that the version I will be describing is 2.0.0, the brand new current build. I’m writing this in February 2024. I will also be discussing host-mode, since that’s what I used for Ballistic. For other indie-games, I’ve also heard that shared-mode works great.
+        </p>
+<h2>Getting Started</h2>
+<p>
+    There isn’t much for me to say here, since I feel the <a href="https://doc.photonengine.com/fusion/current/tutorials/host-mode-basics/1-getting-started">documentation</a> does a pretty good job. It really is simple to get started. The only piece I’d like to add on is that there are two other unitypackage files contained within the initial fusion unitypackage. These two contain some other scripts that may or may not be useful to you, but are referenced in the documentation, particularly <code>NetworkRigidbody</code>. If you ever see a script referenced that you want to use, but it doesn’t show up when you search for it in “add component”, it might be because it’s in one of those extra packages.
+    <br>
+    <br>
+    I won’t be rehashing the step by step guide they give, instead I’ll be talking about how to structure code to work with Fusion, showing you the next steps beyond the tutorial, and demonstrating Fusion using Ballistic as an example. You should first follow Photon’s basic tutorial before coming back here to read about how to build off of it.
+    <br>
+    <br>
+    To summarize some of the basics you’ll need from the tutorial:
+    <br>
+    <br>
+        Spawning the <code>NetworkRunner</code> is done in a <code>StartGame()</code> method, which takes a <code>GameMode</code> enum value that says whether the runner is creating a lobby as a host, or joining a lobby as a client, and a SessionName string which is used to uniquely identify lobbies.
+        <br>
+        <br>
+        You need a MonoBehaviour which implements the <code>INetworkRunnerCallbacks</code> interface, which are used to listen for different network events.
+        <br>
+        <br>
+        All game objects that you want to be networked need to have the <code>NetworkObject</code> script attached to it. State that should be synchronized can then be defined inside of a <code>NetworkBehaviour</code> script that you create.
+        <br>
+        <br>
+        <code>NetworkBehaviour</code> is Fusion’s networked equivalent to MonoBehaviour. <code>Spawned()</code> is called after the NetworkRunner has instantiated it, <code>Render()</code> is roughly equivalent to <code>Update()</code>, <code>FixedUpdateNetwork()</code> is roughly equivalent to <code>FixedUpdate()</code>. You still have access to those normal MonoBehaviour methods.
+        <br>
+        <br>
+        Client input is collected in the <code>OnInput()</code> NetworkRunner callback, stored in a struct that implements <code>INetworkInput</code>, and then received by your character controller <code>NetworkBehaviour</code> using the <code>GetInput()</code> method.
+        <br>
+        <br>
+        In <code>FixedUpdateNetwork()</code>, use <code>Runner.DeltaTime</code> instead of <code>Time.fixedDeltaTime</code>.
+    <br>
+    <br>
+    Besides that, <a href="https://doc.photonengine.com/fusion/current/getting-started/sdk-download">this</a> is a link to the correct download page for the unity package.
+    <br>
+    And <a href="https://doc-api.photonengine.com/en/fusion/v2/index.html">this</a> is a link to the Fusion 2 manpages.
+</p>
+<h2>The NetworkRunner Prefab</h2>
+<p>
+    In Fusion, the NetworkRunner class is the main interface for Fusion’s API. It’s responsible for connecting to Photon’s cloud services, all NetworkBehaviours have a reference to it through the <code>Runner</code> attribute, and it maintains synchronized object IDs for all NetworkObjects. If a NetworkRunner doesn’t exist in the scene, then the client isn’t online.
+    <br>
+    <br>
+    For most games, the NetworkRunner would be instantiated when the player clicks a “Host” or “Join” button, which will call a <code>StartGame()</code> method. Unlike the <a href="https://doc.photonengine.com/fusion/current/tutorials/host-mode-basics/2-setting-up-a-scene#:~:text=async%20void%20StartGame,)%3B%0A%7D">example shown in the documentation</a>, I prefer to keep the <code>StartGame()</code> method in a separate script from the <code>INetworkRunnerCallbacks</code> implementation. Instead I put it in a <code>NetworkRunnerHandler</code> script, which will contain the logic for hosting and joining.
+</p>
+<br>
+<pre class="code-block">
+public class NetworkRunnerHandler : MonoBehaviour
+{
+    <p class="comments">// NetworkRunner prefab that also contains your other networked object managers</p>
+    [SerializeField] private NetworkRunner networkRunnerPrefab;
+
+    <p class="comments">// Input field used to input the lobby name the player wants to join</p>
+    [SerializeField] private TMP_InputField lobbyNameInputField;
+
+    <p class="comments">// Invoked by "Host" button OnClick event</p>
+    public void OnHost()
+    {
+        <p class="comments">// Prevent multiple instances of the NetworkRunner from being instantiated</p>
+        if (FindFirstObjectByType&lt;NetworkRunner&gt;() != null)
+        {
+            return;
+        }
+        string lobbyName = <p class="comments">/* generate unique lobby name here */</p>;
+        StartGame(GameMode.Host, lobbyName);
+    }
+
+    <p class="comments">// Invoked by "Host" button OnClick event</p>
+    public void OnClient()
+    {
+        <p class="comments">// Prevent multiple instances of the NetworkRunner from being instantiated</p>
+        if (FindFirstObjectByType&lt;NetworkRunner&gt;() != null)
+        {
+            return;
+        }
+        string lobbyName = lobbyNameInputField.text;
+        StartGame(GameMode.Client, lobbyName);
+    }
+
+    <p class="comments">// Pretty much the same as the tutorial</p>
+    private void StartGame(GameMode mode, string lobbyName)
+    {
+        <p class="comments">// ...</p>
+    }
+}
+</pre>
+<br>
+<p>
+    The <code>INetworkRunnerCallbacks</code> can then be put into a separate <code>NetworkRunnerCallbacks</code> class, attached to the same prefab as the NetworkRunner. I got this pattern from <a href="https://youtu.be/KqpMOdPj3co?feature=shared">this tutorial series</a> for Fusion 1. Along with these two components, all managers that are handling networked objects are best attached to the NetworkRunner prefab. A key difference between normal and networked managers is that you should really treat your networked managers as wrappers around the NetworkRunner. This is because the NetworkRunner already maps all NetworkObjects to unique keys, which are their network ID. So most managers will be wrappers around <code>Runner.Spawn()</code>, <code>Runner.Despawn()</code>, and <code>Runner.TryGetNetworkObject()</code>.
+</p>
+<h2>Network Object Managers</h2>
+<p>
+    For Ballistic, I kept our object managers as MonoBehaviours. However, I could easily see why you want to make them NetworkBehaviours. I kept them client-sided because the only player instance that should be doing any object management is the host. For clients, our object managers were pretty much just message brokers, used to distribute reset events. As an example, this is a simplified version of the player manager from Ballistic:
+</p>
+<br>
+<pre class="code-block">
+public class NetworkPlayerManager : MonoBehaviour
+{
+    private NetworkRunner runner;
+
+    public void Init(NetworkRunner runner)
+    {
+        this.runner = runner;
+        <p class="comments">// other setup stuff...</p>
+
+        if (runner.IsServer)
+        {
+            <p class="comments">// host specific set up stuff...</p>
+        }
+    }
+
+    <p class="comments">// The player prefab</p>
+    [SerializeField] private NetworkPrefabRef playerPrefab;
+
+    <p class="comments">// NetworkPlayer is our character controller class</p>
+    private Dictionary&lt;PlayerRef, NetworkPlayer&gt; spawnedPlayers = 
+        new Dictionary&lt;PlayerRef, NetworkPlayer&gt;();
+    
+    <p class="comments">// Spawns a new player prefab, and associates it with the PlayerRef</p>
+    <p class="comments">// Should only be called by the host</p>
+    public NetworkPlayer SpawnPlayer(PlayerRef player)
+    {
+        if (!runner.IsServer) return null;
+
+        <p class="comments">// Create a unique position for the player</p>
+        Vector3 spawnPosition = Spawner.GetSpawnPoint();
+        
+        <p class="comments">// Use Runner.Spawn() to instantiate the player on all clients</p>
+        NetworkObject networkPlayerObject = runner.Spawn(playerPrefab, spawnPosition, Quaternion.identity, player);
+
+        <p class="comments">// Get character controller so that it can be cached in spawnedPlayers</p>
+        NetworkPlayer netPlayer = networkPlayerObject.gameObject.GetComponent&lt;NetworkPlayer&gt;();
+
+        <p class="comments">// Keep track of the player objects for easy access</p>
+        spawnedPlayers.Add(player, netPlayer);
+
+        <p class="comments">// Map NetworkObject to PlayerRef so that it can also be retrieved with Runner.TryGetPlayerObject()</p>
+        runner.SetPlayerObject(player, networkPlayerObject);
+
+        return netPlayer;
+    }
+
+    <p class="comments">// Gets the player's object, expected to be used by clients</p>
+    public NetworkPlayer GetPlayer(PlayerRef playerRef)
+    {
+        if (!spawnedPlayers.ContainsKey(playerRef))
+        {
+            <p class="comments">// Clients will need to get the player's object from the runner, since</p>
+            <p class="comments">// their player manager isn't tracking them</p>
+            if (runner.TryGetPlayerObject(playerRef, out var obj))
+            {
+                AddPlayer(playerRef, obj.GetComponent&lt;NetworkPlayer&gt;());
+            }
+            else
+            {
+                return null;
+            }
+        }
+        return spawnedPlayers[playerRef];
+    }
+
+    <p class="comments">// Removes a player from the game, should only be called by the host</p>
+    public void DespawnPlayer(PlayerRef player)
+    {
+        if (runner.IsServer && spawnedPlayers.TryGetValue(player, out var netPlayer))
+        {
+            spawnedPlayers.Remove(player);
+            runner.Despawn(netPlayer.GetComponent&lt;NetworkObject&gt;());
+        }
+    }
+}
+</pre>
+<br>
+<p>
+    The only method here that clients ever need to use is <code>GetPlayer()</code>, which will still work fine as long as you relate your objects to their <code>PlayerRef</code> or <code>NetworkId</code> since the NetworkRunner maintains its own map with these.
+    <br>
+    <br>
+    Instead of using <code>Awake()</code>, managers have an <code>Init()</code> method that takes a reference to the NetworkRunner. Each manager’s <code>Init()</code> will be run by the <code>NetworkRunnerCallbacks</code> script. This is because the managers shouldn’t try to access anything from the NetworkRunner until it is completely set up, which is done asynchronously. One of the NetworkRunner callbacks, <code>OnConnectedToServer()</code>, will work for clients. However, this callback is called for the host when they first connect to Photon’s cloud services, not when it has established itself as a host of a lobby. The best way I’ve found to track when the host is ready to have its managers initialized is in the <code>OnPlayerJoined()</code> callback.
+</p>
+<br>
+<pre class="code-block">
+<p class="comments">// In NetworkRunnerCallbacks...</p>
+
+<p class="comments">// Dirty bool to track if managers have been initialized yet</p>
+private bool initialized = false;
+
+private void InitManagers()
+{
+    <p class="comments">// Call manager Init() methods...</p>
+    initialized = true;
+}
+
+public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+{ 
+    if (runner.IsServer && !initialized)
+    {
+        InitManagers();
+    }
+
+    if (runner.IsServer)
+    {
+        <p class="comments">// Spawn player...</p>
+    }
+}
+
+public void OnConnectedToServer(NetworkRunner runner)
+{
+    <p class="comments">// This means host will have call init twice, </p>
+    <p class="comments">// keep host specific initialization steps wrapped in Runner.IsServer check.</p>
+    InitManagers();
+    <p class="comments">// Set back to false so that host will initialize managers again after runner is ready</p>
+    initialized = false;
+}
+</pre>
+<br>
+<p>
+    <code>OnPlayerJoined()</code> is called when the host’s player prefab is instantiated, which means it’s only called when the runner is ready to start spawning networked objects. Another option is to have a coroutine waiting for <code>Runner.IsServer</code> to become true, given that there is only 1 player in the lobby, which must be the host. Otherwise, I haven’t found an explicit event Fusion provides.
+</p>
+<h2>Network Level Manager</h2>
+<p>
+    Most managers will follow the basic structure the <code>NetworkPlayerManager</code> uses. However, the <code>NetworkLevelManager</code>, which is responsible for handling and synchronizing scene transitions, is a special beast of its own. The NetworkRunner, given this line of code from <code>StartGame()</code>:
+</p>
+<br>
+<pre class="code-block">
+<p class="comments">// Add default scene manager</p>
+sceneManager = runner.gameObject.AddComponent&lt;NetworkSceneManagerDefault&gt;();
+
+runner.StartGame(new StartGameArgs{
+    GameMode = mode,
+    Scene = scene,
+    SessionName = lobbyName,
+    SceneManager = sceneManager
+});
+</pre>
+<br>
+<p>
+    Will be able to do most scene loading tasks that you’ll need. For basic scene transitions, it’s a simple call:
+</p>
+<br>
+<pre class="code-block">
+int buildIndex = SceneManager.GetSceneByName(sceneNameStr).buildIndex;
+Runner.LoadScene(SceneRef.FromIndex(buildIndex));
+</pre>
+<br>
+<p>
+    It’s worth noting that the default <code>LoadScene()</code> expects a <code>SceneRef</code>. The easiest way to make a <code>SceneRef</code> to me is using its <code>FromIndex()</code> constructor.
+    <br>
+    <br>
+    This will load the scene on all clients for you, but doesn’t guarantee that loading is synchronized. In my own testing, the host usually loads into the scene a second or 2 before other clients. To prevent this from happening, the clients need to confirm with the host that they have loaded into the scene. This can be done using the <code>OnSceneLoadDone()</code> NetworkRunner callback. Once all of the clients have confirmed to the host that they’ve loaded in, the host can then notify the clients, including themselves, that their controllers can be unpaused. In the time spent waiting for the other clients to confirm, the host can then be resetting and generating objects.
+</p>
+<img src="../img/photon-tutorial/level-manager.png">
+<h2>Data Transfer</h2>
+<p>
+    The <a href="https://doc.photonengine.com/fusion/current/manual/data-transfer/data-transfer">Fusion docs</a> define 3 different channels for data transfer. I think this quote from the Remote Procedure Calls page is a great summary for what each is useful for:
+</p>
+<br>
+<pre class="code-block">
+    Remote Procedure Calls, simply referred to as RPCs, are ideal for sharing 
+    punctual game events; in contrast the Input Struct and [Networked] properties 
+    are the go-to solutions for sharing state between network clients that are 
+    undergoing continuous change.
+</pre>
+<br>
+<img src="../img/photon-tutorial/data-transfer-methods.png">
+<br>
+<p>
+    In general, your NetworkBehaviour classes should only have networked properties if those properties are going to be changed in a <code>FixedUpdateNetwork()</code> call. Any state changes that happen on events should be handled through RPCs.
+</p>
+<h2>Network Properties</h2>
+<p>
+    In <a href="https://doc.photonengine.com/fusion/current/tutorials/host-mode-basics/5-property-changes#:~:text=public%20override%20void%20Render()">Fusion’s tutorial section</a>, they show code using a switch statement to register reactions to state changes. I don’t believe this is very extendable code for classes that require a lot of synchronized state. For example, in Ballistic our player controller uses networked properties to track animator bools. In the future, we’re looking to add in ball buffs that will include status effects which should be synchronized with networked properties. If we used a switch statement, animator logic and gameplay logic would end up mushed together.
+    <br>
+    <br>
+    Instead, I propose using a structure like this:
+</p>
+<br>
+<pre class="code-block">
+<p class="comments">//Simple delegate type for assigning event listeners</p>
+public delegate void Notify();
+
+public class Example : NetworkBehaviour
+{
+    <p class="comments">// This object's change detector</p>
+    private ChangeDetector detector;
+
+    <p class="comments">// A map of event listeners, each assigned to a networked attribute</p>
+    private Dictionary&lt;string, Notify&gt; changeListeners;
+
+    private void SetChangeListeners()
+    {
+        changeListeners = new Dictionary&lt;string, Notify&gt;
+        {
+            { nameof(myProperty), MyPropertyOnChange }
+        };
+    }
+
+    <p class="comments">// Networked properties...</p>
+
+    [Networked, HideInInspector] public type myProperty;
+    void MyPropertyOnChange()
+    {
+        <p class="comments">// Reaction to state change...</p>
+    }
+
+    public override void Render()
+    {
+        <p class="comments">// Call the property's change listener if one has been assigned</p>
+        foreach (var propName in detector.DetectChanges(this))
+        {
+            if (changeListeners.containsKey(propName))
+            {
+                changeListeners[propName]();
+            }
+        }
+    }
+
+    public override void Spawned()
+    {
+        <p class="comments">// Init change detector to current game state and set up listeners</p>
+        detector = GetChangeDetector(ChangeDetector.Source.SimulationState);
+        SetChangeListeners();
+    }
+}
+</pre>
+<br>
+<p>
+    By splitting each cases’ logic into explicit event listeners, it makes it easier to manage individual properties since you can ignore everything except the property you’re focused on. This does come with a memory overhead trade-off, but I think this balances out since objects that would need logic management like this will usually be few in number.
+</p>
+<h2>Remote Procedure Calls (RPCs)</h2>
+<p>
+    RPCs are easily my favorite feature in Fusion. I’ve found that their most common use is for creating networked wrappers around normal procedure calls. For example, to throw a ball in Ballistic, we made a <code>NetworkApplyForce()</code>, which calls RPCs to use the normal rigidbody <code>ApplyForce()</code> across all clients.
+    <br>
+    <br>
+    The general structure for these wrappers looks like this:
+</p>
+<br>
+<pre class="code-block">
+<p class="comments">// The actual procedure</p>
+public void Procedure(...) { ... }
+
+<p class="comments">// The networked wrapper around the procedure call</p>
+public void NetworkProcedure(...)
+{
+    if (Runner.IsServer)
+    {
+        <p class="comments">// Tell all clients including themselves to run the procedure</p>
+        RPC_EnforceProcedure(PlayerRef.None, ...);
+    }
+    else
+    {
+        <p class="comments">// Local prediction step, prevents latency</p>
+        Procedure(...);
+
+        <p class="comments">// Different RPC arguments are required if object has input authority</p>
+        if (Object.HasInputAuthority)
+        {
+            RPC_PlayerRequestProcedure(Runner.LocalPlayer, ...);
+        }
+        else
+        {
+            RPC_RequestProcedure(Runner.LocalPlayer, ...);
+        }
+    }
+}
+
+<p class="comments">// Called by host, run by clients</p>
+[Rpc(RpcSources.StateAuthority, RpcTargets.All, HostMode = RpcHostMode.SourceIsServer, TickAligned = false)]
+public void RPC_EnforceProcedure(PlayerRef source, ...)
+{
+    <p class="comments">// Avoid double-running procedure </p>
+    if (Runner.LocalPlayer == source) return;
+
+    <p class="comments">// Run procedure on each client</p>
+    Procedure(...);
+}
+
+<p class="comments">// Called by player's local object, run by host</p>
+[Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority, HostMode = SourceIsHostPlayer, TickAligned = false)]
+public void RPC_PlayerRequestProcedure(PlayerRef source, ...)
+{
+    <p class="comments">// Only accept procedure call if host can verify its validity, </p>
+    <p class="comments">// can be skipped if you're not worried about that</p>
+    if (!RequestIsValid(source, ...)) return;
+
+    <p class="comments">// Pass procedure call on to other clients</p>
+    RPC_EnforceProcedure(source, ...);
+}
+
+<p class="comments">// Called by client, run by host</p>
+[Rpc(RpcSources.Proxies, RpcTargets.StateAuthority, HostMode = SourceIsHostPlayer, TickAligned = false)]
+public void RPC_RequestProcedure(PlayerRef source, ...)
+{
+    <p class="comments">// Only accept procedure call if host can verify its validity, </p>
+    <p class="comments">// can be skipped if you're not worried about that</p>
+    if (!RequestIsValid(source, ...)) return;
+
+    <p class="comments">// Pass procedure call on to other clients</p>
+    RPC_EnforceProcedure(source, ...);
+}
+</pre>
+<br>
+<p>
+    The naming conventions for RPCs can be a bit confusing. The idea is that one client can call a function on another client’s computer. This means that the function should be named from the caller client’s perspective, but implemented from the callee client’s perspective. <code>RPC_EnforceProcedure()</code> is named that way because the server calls it to make the clients run the procedure.
+    <br>
+    <br>
+    In this format, I show a second check if the callee has input authority, but you usually will only need a request RPC for either input authority (normally just the local player’s game object), or proxies (any other networked object). Having the actual procedure be public is also important. If another RPC wrapped procedure wants to call it, it’s more performant to only call it locally. Otherwise, you’ll have RPCs calling RPCs calling RPCs, which will be creating unnecessary network traffic. The last piece to note is the use of <code>TickAligned</code>. By setting this to false, the procedure will run as soon as the targets receive the message, as opposed to the next network update tick. This may, or may not be necessary for what you need.
+    <br>
+    <br>
+    I personally find RPCs the easiest form of data transfer to reason about, so I recommend using them during prototyping for the majority of data transfer, excluding player input. Then, move the state that’s constantly changing into networked properties (i.e. if the RPC is being called every FixedUpdate).
+</p>
+<h2>NetworkInputData Struct</h2>
+<p>
+    This is pretty straightforward. The main gotcha is to not use frame specific events like <code>OnKeyDown()</code> or <code>OnKeyUp()</code>. Besides that, filling it with a ton of data isn’t ideal since it, to a degree, describes the package that the client will be sending to the host every tick. Fusion does some compression on its own to shrink the package size though, so as long as you’re storing mostly bools in it, efficiency isn’t something to worry about until you measure network performance.
+    <br>
+    <br>
+    You can also implement pausing in <code>OnInput()</code>. Since most multiplayer games don’t actually stop the game when a player pauses, you only need to stop collecting input when paused:
+</p>
+<br>
+<pre class="code-block">
+<p class="comments">// In NetworkRunnerCallbacks ...</p>
+
+private bool paused = false;
+
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.Escape))
+    {
+        paused = !paused;
+    }
+}
+
+public void OnInput(NetworkRunner runner, NetworkInput input)
+{
+    var data = new NetworkInputData();
+
+    if (!paused)
+    {
+        <p class="comments">// Collect input ...</p>
+    }
+
+    input.Set(data);
+}
+</pre>
+<br>
+<h2>NetworkTransform</h2>
+<p>
+    During development for Ballistic, we found that Fusion’s provided <code>NetworkTransform</code> class was unreliable. It regularly caused rubber-banding, even on the host instance. I’m still not entirely sure why it behaved like that, but my workaround was to simply create a replacement.
+</p>
+<br>
+<pre class="code-block">
+<p class="comments">// Gives host complete authority over network objects' transforms</p>
+public class NetworkPosition : NetworkBehaviour
+{
+    private ChangeDetector detector;
+
+    [Networked, HideInInspector] public Vector3 position { get; set; }
+    [Networked, HideInInspector] public Vector3 rotation { get; set; }
+    [Networked, HideInInspector] public Vector3 velocity { get; set; }
+    [Networked, HideInInspector] public Vector3 angVelocity { get; set; }
+
+    private Rigidbody rig;
+
+    public override void Spawned()
+    {
+        detector = GetChangeDetector(ChangeDetector.Source.SimulationState);
+        rig = GetComponent&lt;Rigidbody&gt;();
+    }
+
+    public override void Render()
+    {
+        <p class="comments">// Do not enforce host's previous tick onto current tick</p>
+        if (Runner.IsServer) return;
+
+        <p class="comments">// Update clients' state to match host</p>
+        foreach (var attrName in detector.DetectChanges(this))
+        {
+            switch (attrName)
+            {
+                <p class="comments">// Update transform values</p>
+                case nameof(position):
+                    transform.position = position;
+                    break;
+                case nameof(rotation):
+                    transform.eulerAngles = rotation;
+                    break;
+                
+                <p class="comments">// Update rigidbody velocities for simulation</p>
+                case nameof(velocity):
+                    if (rig && !rig.isKinematic) rig.velocity = velocity;
+                    break;
+                case nameof(angVelocity):
+                    if (rig && !rig.isKinematic) rig.angularVelocity = angVelocity;
+                    break;
+            }
+        }
+    }
+
+    public override void FixedUpdateNetwork()
+    {
+        <p class="comments">// Only the host should be updating networked state</p>
+        if (!Runner.IsServer) return;
+
+        position = transform.position;
+        rotation = transform.eulerAngles;
+        if (rig)
+        {
+            velocity = rig.velocity;
+            angVelocity = rig.angularVelocity;
+        }
+    }
+}
+</pre>
+<br>
+<p>
+    This is pretty stripped down from what <code>NetworkTransform</code> offers, but it was essentially all we needed for Ballistic (minus some dirty bools I removed to make this example simpler). If you find that your game has unexpected stuttering, try disabling <code>NetworkTransform</code> components. If the stuttering stops then you should experiment with different methods of applying transform changes, or create your own synchronization script that fits what you need.
+</p>
+<h2>Client-Sided Scripts</h2>
+<p>
+    My general design philosophy is that everything should be client-sided, until you know it needs to be networked. Some pieces of the game will pretty much always be client-sided, such as sound, particles, and UI. Sometimes, you can also avoid unnecessary network objects by having normal MonoBehaviours be listening to events that will be triggered by RPCs. For example, our current implementation of ball buffs uses MonoBehaviour scripts. These are then listening to events such as OnThrow, OnBounce, and OnHitPlayer from the NetworkBehaviour dodgeball script:
+</p>
+<br>
+<pre class="code-block">
+public class NetworkDodgeball : NetworkBehaviour
+{
+    <p class="comments">// Ball buff attached to this ball</p>
+    private BallBuff buff;
+
+    <p class="comments">// Public interface for triggering the event</p>
+    public void OnThrow(PlayerRef thrower, Vector3 throwDir)
+    {
+        <p class="comments">// Only the host can trigger this event</p>
+        if (Runner.IsServer)
+        {
+            RPC_EnforceOnThrow(thrower, throwDir);
+        }
+    }
+
+    <p class="comments">//RPC for distributing the event</p>
+    public void RPC_EnforceOnThrow(PlayerRef thrower, Vector3 throwDir)
+    {
+        <p class="comments">// Get the player controller from the player manager</p>
+        buff.OnThrow(NetworkPlayerManager.Instance.GetPlayer(thrower), throwDir);
+    }
+}
+
+public class BallBuff : MonoBehaviour
+{
+    public void OnThrow(NetworkPlayer thrower, Vector3 throwDir)
+    {
+        <p class="comments">// Apply ball buff effect without needing to think about any networking</p>
+    }
+}
+</pre>
+<br>
+<p>
+    Each dodgeball’s buff doesn’t need to be networked itself. Any other objects can also subscribe to these events, and avoid having to be networked. This also gives other programmers on your team a way to avoid dealing with networked code, since this abstracts it behind events.
+    <br>
+    <br>
+    You’ll also probably need client-sided scripts for enabling objects only the local player should have. A common one is the camera. This will usually be a child in the player prefab’s hierarchy, which should only be active on the local player’s instance. In this case, you can use <code>Object.HasInputAuthority</code>, which returns true if the object is associated with the local player instance, in the character controller script to check if the camera should be active or not. You might also want to cache each player’s <code>PlayerRef</code> on the character controller so that it can be compared against <code>Runner.LocalPlayer</code>, and give you easy access to that value in general.
+</p>
+<h2>Handling Network Events</h2>
+<p>
+    Network events are handled through the NetworkRunnerCallbacks interface. The main network events you’ll be dealing with immediately are disconnections. The main callbacks for handling these are <code>OnDisconnectFromServer()</code>, and <code>OnShutdown()</code>. <code>OnShutdown()</code> is called when the NetworkRunner is told to destroy itself with <code>Runner.Shutdown()</code>. Both are fairly straightforward, providing an enum for reason reporting.
+</p>
+<br>
+<pre class="code-block">
+<p class="comments">// In NetworkRunnerCallbacks...</p>
+
+<p class="comments">// Popup prefab created on shutdown</p>
+[SerializeField] ConnectionPopup popupPrefab;
+
+<p class="comments">// ShutdownReason enum has many values, these are the common ones for Ballistic</p>
+public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+{
+    string message = "Network Connection Closed:\n";
+    switch (shutdownReason)
+    {
+        case ShutdownReason.Ok:
+            message += "Host has ended the game.";
+            break;
+
+        case ShutdownReason.ServerInRoom:
+        case ShutdownReason.GameIdAlreadyExists:
+            message += "Failed to host lobby.";
+            break;
+
+        case ShutdownReason.GameNotFound:
+            message += "Lobby could not be found.";
+            break;
+
+        case ShutdownReason.ConnectionRefused:
+        case ShutdownReason.GameIsFull:
+            message += "Lobby could not be joined.";
+            break;
+
+        case ShutdownReason.ConnectionTimeout:
+        case ShutdownReason.OperationTimeout:
+        case ShutdownReason.PhotonCloudTimeout:
+            message += "Connection timeout.";
+            break;
+
+        default:
+            message += "Network error.";
+            break;
+    }
+    var popup = Instantiate(popupPrefab);
+    popup.SetText(message);
+}
+</pre>
+<br>
+<p>
+    In Ballistic, these events create a popup for the player that will take them back to the main menu. This popup is instantiated as a separate game object from the NetworkRunner prefab, since the NetworkRunner’s game object is destroyed in the next frame. When the NetworkRunner is destroyed, it will also destroy all NetworkObjects. This clean up is important, since a new NetworkRunner has to be created for a client to reconnect.
+    <br>
+    <br>
+    If you want to add logic for accepting and rejecting clients, then you’ll use the <code>OnConnectRequest()</code> callback. This is run on the host instance when a new player attempts to join. By default, any connection request is accepted. If you want to explicitly accept or refuse requests, you can use the matching methods on the request argument:
+</p>
+<br>
+<pre class="code-block">
+<p class="comments">// In NetworkRunnerCallbacks...</p>
+public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token)
+{
+    if (LobbyHasSpace)
+    {
+        request.Accept();
+    }
+    else
+    {
+        request.Refuse();
+    }
+}
+</pre>
+<br>
+<h2>Conclusion</h2>
+<p>
+    What I’ve explained here is everything we needed to complete the vertical slice for Ballistic. Going forward, you might want to look into <a href="https://doc.photonengine.com/fusion/current/manual/testing-and-tooling/fusionstats">Fusion’s debugging and performance tooling</a>, their <a href="https://doc.photonengine.com/fusion/current/manual/advanced/lag-compensation">Hitbox class</a> for lag compensation, or <a href="https://doc.photonengine.com/fusion/current/manual/network-project-config">project configuration</a> to refine Fusion to give you exactly what you need. You’re given a lot of resources out of the box, so if you’re thinking of creating a component, I’d suggest digging through their docs to see if they’ve already made something that suits your needs.
+    <br>
+    <br>
+    Before working on Ballistic, multiplayer programming was like a monolithic job I only vaguely understood, but knew was extremely difficult. With Fusion, I feel like I’ve found a really amazing framework that I would even try to emulate for games I work on that aren’t made in Unity.
+</p>
+</content>
+        <footer class="footer">
+            <p>Anthony Umemoto 2024</p>
+            <div class="links">
+                <a href="https://www.linkedin.com/in/anthony-umemoto-97b74b260/"><img src="../img/linkedin.png"></a>
+                <div class="footer-separator"></div>
+                <a href="https://atumemot.itch.io/"><img src="../img/itchio.png"></a>
+                <div class="footer-separator"></div>
+                <a href="https://github.com/CaptainToTo"><img src="../img/GitHub_logo.png"></a>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>
