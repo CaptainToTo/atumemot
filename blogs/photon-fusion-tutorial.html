@@ -177,7 +177,7 @@ public class NetworkPlayerManager : MonoBehaviour
             <p class="comments">// their player manager isn't tracking them</p>
             if (runner.TryGetPlayerObject(playerRef, out var obj))
             {
-                AddPlayer(playerRef, obj.GetComponent&lt;NetworkPlayer&gt;());
+                spawnedPlayers.Add(playerRef, obj.GetComponent&lt;NetworkPlayer&gt;());
             }
             else
             {
