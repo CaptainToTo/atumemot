@@ -155,8 +155,8 @@ content code {
 }
 
 iframe {
-    width: 560px; 
-    height: 315px;
+    width: 80%; 
+    aspect-ratio: 16 / 9;
 }
 
 @media (max-width: 850px) {
@@ -180,10 +180,6 @@ iframe {
     content p {
         font-size: 1.2em;
         line-height: 1.2em;
-    }
-
-    iframe {
-        width: 80%;
     }
 }
 
