@@ -71,7 +71,8 @@ content {
     padding-left: 25px;
     padding-right: 25px;
     margin-left: calc(calc(100% - 850px) / 2);
-    display: block;
+    display: flex;
+    flex-direction: column;
 }
 
 @media (max-width: 850px) {
@@ -192,11 +193,12 @@ iframe {
 }
 
 .card {
-    width: 100%;
     margin-top: 30px;
     margin-bottom: 30px;
     position: relative;
     display: flex;
+    place-items: center center;
+    padding: 1rem;
 }
 
 .card-background {
