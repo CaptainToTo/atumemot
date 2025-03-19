@@ -153,6 +153,11 @@ content code {
     line-height: 1.5em;
 }
 
+iframe {
+    width: 560px; 
+    height: 315px;
+}
+
 @media (max-width: 850px) {
     content h1 {
         font-size: 2.5em;
@@ -174,6 +179,11 @@ content code {
     content p {
         font-size: 1.2em;
         line-height: 1.2em;
+    }
+
+    iframe {
+        width: 400px;
+        height: 225px;
     }
 }
 
