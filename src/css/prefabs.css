@@ -5,17 +5,17 @@
 }
 
 .body {
-    background-color: #005680;
+    background-color: #00334d;
 }
 
 .page {
-	background-color: #278FC2;
+	background-color: #055983;
 }
 
 .header {
     height: 400px;
     width: 100%;
-    background-image: linear-gradient(to bottom, #005680, #278FC2);
+    background-image: linear-gradient(to bottom, #00334d, #055983);
     text-align: center;
 }
 
@@ -243,7 +243,7 @@ iframe {
     margin-bottom: 0px;
     height: 80px;
     width: 100%;
-    background-image: linear-gradient(to top, #005680, #278FC2);
+    background-image: linear-gradient(to top, #00334d, #055983);
     text-align: center;
 }
 
